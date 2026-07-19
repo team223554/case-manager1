@@ -98,17 +98,36 @@ let docs=JSON.parse(localStorage.getItem(LS_D)||'[]');
 let notices=JSON.parse(localStorage.getItem(LS_N)||'[]');
 let tags=JSON.parse(localStorage.getItem(LS_T)||'[]');
 function save(){localStorage.setItem(LS_C,JSON.stringify(cases));localStorage.setItem(LS_D,JSON.stringify(docs));localStorage.setItem(LS_N,JSON.stringify(notices));localStorage.setItem(LS_T,JSON.stringify(tags));syncToCloud()}
+function cleanFields(arr,cols){
+  return arr.map(function(r){
+    var o={};for(var k in r){if(cols.indexOf(k)>=0||k==='id')o[k]=r[k]}
+    if(!o.id)o.id=uid();return o;
+  });
+}
+var CASECOLS="id,createdAt,receiveDate,client,plaintiff,defendant,opponent,caseType,court,isPreserved,stage,hearingDate,caseNo,judge,isClosed,lawyer,phone,fee,evidenceDeadline,judgmentDate,note".split(",");
+var SUPACOLS=["id","createdAt","plaintiff","defendant","caseType","court","isPreserved","stage","hearingDate","caseNo","judge","isClosed","lawyer","phone","fee","evidenceDeadline","judgmentDate","note","receiveDate","client","opponent"];
+var DOCCOLS="id,caseId,name,url,type,createdAt".split(",");
+var NOTICECOLS="id,caseId,type,date,hearDate,hearPlace,url,note,createdAt,fileUrl,fileName,fileData".split(",");
+
 async function syncToCloud(){
   if(!window._supaOK)return;
   try{
-    await fetch(API+'/cases?id=neq.__never__',{method:'DELETE',headers:H});
-    await fetch(API+'/docs?id=neq.__never__',{method:'DELETE',headers:H});
-    await fetch(API+'/notices?id=neq.__never__',{method:'DELETE',headers:H});
-    if(cases.length)await fetch(API+'/cases',{method:'POST',headers:H,body:JSON.stringify(cases)});
-    if(docs.length)await fetch(API+'/docs',{method:'POST',headers:H,body:JSON.stringify(docs)});
-    if(notices.length)await fetch(API+'/notices',{method:'POST',headers:H,body:JSON.stringify(notices)});
+    if(cases.length){var cd=cleanFields(cases,SUPACOLS);var r=await fetch(API+'/cases',{method:'POST',headers:Object.assign({},H,{Prefer:'resolution=merge-duplicates'}),body:JSON.stringify(cd)});if(!r.ok)throw new Error('cases:'+r.status)}
+    if(docs.length){var dd=cleanFields(docs,DOCCOLS);var r2=await fetch(API+'/docs',{method:'POST',headers:Object.assign({},H,{Prefer:'resolution=merge-duplicates'}),body:JSON.stringify(dd)});if(!r2.ok)throw new Error('docs:'+r2.status)}
+    if(notices.length){var nd=cleanFields(notices,NOTICECOLS);var r3=await fetch(API+'/notices',{method:'POST',headers:Object.assign({},H,{Prefer:'resolution=merge-duplicates'}),body:JSON.stringify(nd)});if(!r3.ok)throw new Error('notices:'+r3.status)}
     window._lastSync='✅ '+new Date().toLocaleTimeString();
   }catch(e){window._lastSync='❌ '+e.message}
+}
+
+async function uploadToCloud(){
+  var m=document.getElementById('syncMsg');m.textContent='⏳ 上传中...';
+  try{
+    var ok=0;
+    if(cases.length){var cd=cleanFields(cases,CASECOLS);var r=await fetch(API+'/cases',{method:'POST',headers:H,body:JSON.stringify(cd)});if(!r.ok){var txt=await r.text();throw new Error(r.status+' '+txt.slice(0,200))}ok+=cases.length}
+    if(docs.length){var dd=cleanFields(docs,DOCCOLS);await fetch(API+'/docs',{method:'POST',headers:H,body:JSON.stringify(dd)})}
+    if(notices.length){var nd=cleanFields(notices,NOTICECOLS);await fetch(API+'/notices',{method:'POST',headers:H,body:JSON.stringify(nd)})}
+    m.textContent='✅ 上传成功（'+ok+'案件/'+docs.length+'文档/'+notices.length+'通知）';
+  }catch(e){m.textContent='❌ 上传失败：'+e.message}
 }
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,6)}
 function T(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
@@ -241,7 +260,7 @@ function renderDocumentsPage(){
   const disk=localStorage.getItem('lcs_diskUrl')||'';
   const grouped={};docs.forEach(d=>{const c=cases.find(x=>x.id===d.caseId);const k=c?(c.caseNo||'无案号')+' - '+P(c):'未关联案件';if(!grouped[k])grouped[k]=[];grouped[k].push(d)});
   const sorted=Object.entries(grouped).sort((a,b)=>{const ca=cases.find(c=>a[0].includes(c.caseNo)&&a[0].includes(P(c)));const cb=cases.find(c=>b[0].includes(c.caseNo)&&b[0].includes(P(c)));const sa=ca?.stage||'';const sb=cb?.stage||'';const pa=sa.includes('待提交')||sa.includes('待立案')?0:sa.includes('待')?1:2;const pb=sb.includes('待提交')||sb.includes('待立案')?0:sb.includes('待')?1:2;return pa-pb||a[0].localeCompare(b[0])});
-  return`<div class="card"><h3>📤 上传文档</h3><div class="form-grid"><div class="form-group"><label>关联案件</label><select id="doc_caseId" onchange="autoFillDocLink()"><option value="">不关联</option>${co}</select></div><div class="form-group"><label>文档名称</label><input id="doc_name" placeholder="如：起诉状、判决书"></div><div class="form-group"><label>文档链接</label><input id="doc_url" value="${disk}" placeholder="网盘链接或本地路径"></div><div class="form-group"><label>类型</label><select id="doc_type"><option>起诉状</option><option>答辩状</option><option>判决书</option><option>裁定书</option><option>证据材料</option><option>代理词</option><option>其他</option></select></div></div><button class="btn btn-primary" style="margin-top:10px" onclick="addDoc()">➕ 添加</button></div>
+  return`<div class="card"><h3>📤 上传文档</h3><div class="form-grid"><div class="form-group"><label>关联案件</label><select id="doc_caseId"><option value="">不关联</option>${co}</select></div><div class="form-group"><label>文档名称</label><input id="doc_name" placeholder="如：起诉状、判决书"></div><div class="form-group"><label>文档链接</label><input id="doc_url" placeholder="粘贴完整链接，如 https://www.123pan.com/s/xxx"></div><div class="form-group"><label>类型</label><select id="doc_type"><option>起诉状</option><option>答辩状</option><option>判决书</option><option>裁定书</option><option>证据材料</option><option>代理词</option><option>其他</option></select></div></div><button class="btn btn-primary" style="margin-top:10px" onclick="addDoc()">➕ 添加</button></div>
   <div class="card"><h3>📁 文档列表（${docs.length}份）</h3><div class="search-row"><input type="text" id="docSearch" placeholder="搜索..." oninput="filterDocs()"><select id="docCaseFilter" onchange="filterDocs()"><option value="">📂 全部案件</option>${co}</select></div>${sorted.map(([k,list])=>`<div style="margin-bottom:10px"><div style="font-weight:600;font-size:13px;color:#1a3c5e;padding:6px 0;border-bottom:2px solid #e8e8e8">📂 ${k}（${list.length}份）</div>${list.map(d=>`<div class="doc-item"><span>📄 <strong>${d.name}</strong> <span class="tag">${d.type||'其他'}</span></span><span><a href="${d.url}" target="_blank" style="color:var(--blue);margin-right:10px;font-size:12px">打开</a><button class="btn btn-danger btn-xs" onclick="delDoc('${d.id}')">🗑</button></span></div>`).join('')}</div>`).join('')||'<div class="empty">暂无文档</div>'}</div>`;
 }
 function filterDocs(){navTo('documents')}
@@ -284,12 +303,9 @@ var H={"apikey":KEY,"Authorization":"Bearer "+KEY,"Content-Type":"application/js
 async function uploadToCloud(){
   var m=document.getElementById('syncMsg');m.textContent='⏳ 上传中...';
   try{
-    await fetch(API+'/cases?id=neq.__never__',{method:'DELETE',headers:H});
-    await fetch(API+'/docs?id=neq.__never__',{method:'DELETE',headers:H});
-    await fetch(API+'/notices?id=neq.__never__',{method:'DELETE',headers:H});
-    if(cases.length)await fetch(API+'/cases',{method:'POST',headers:H,body:JSON.stringify(cases)});
-    if(docs.length)await fetch(API+'/docs',{method:'POST',headers:H,body:JSON.stringify(docs)});
-    if(notices.length)await fetch(API+'/notices',{method:'POST',headers:H,body:JSON.stringify(notices)});
+    if(cases.length){var cd2=cleanFields(cases,SUPACOLS);var r=await fetch(API+'/cases',{method:'POST',headers:H,body:JSON.stringify(cd2)});if(!r.ok){var t=await r.text();throw new Error(r.status+' '+t.slice(0,300))}}
+    if(docs.length){var dd2=cleanFields(docs,DOCCOLS);await fetch(API+'/docs',{method:'POST',headers:H,body:JSON.stringify(dd2)})}
+    if(notices.length){var nd2=cleanFields(notices,NOTICECOLS);await fetch(API+'/notices',{method:'POST',headers:H,body:JSON.stringify(nd2)})}
     m.textContent='✅ 上传成功（'+cases.length+'案件/'+docs.length+'文档/'+notices.length+'通知）';
   }catch(e){m.textContent='❌ 上传失败：'+e.message}
 }
@@ -327,15 +343,11 @@ function closeModal(){const m=document.getElementById('modal');if(m)m.classList.
 setInterval(()=>{const el=document.getElementById('clock');if(el)el.textContent=new Date().toLocaleString('zh-CN');const st=document.getElementById('syncStatus');if(st)st.textContent=window._lastSync||''},1000);
 (async function init(){
   try{
-    var r1=await fetch(API+'/cases?select=*&order=createdAt.desc',{headers:H});
-    var r2=await fetch(API+'/docs?select=*',{headers:H});
-    var r3=await fetch(API+'/notices?select=*',{headers:H});
-    if(r1.ok){var d1=await r1.json();if(d1.length>0)cases=d1}
-    if(r2.ok){var d2=await r2.json();if(d2.length>0)docs=d2}
-    if(r3.ok){var d3=await r3.json();if(d3.length>0)notices=d3}
-    if(cases.length)localStorage.setItem(LS_C,JSON.stringify(cases));
-    if(docs.length)localStorage.setItem(LS_D,JSON.stringify(docs));
-    if(notices.length)localStorage.setItem(LS_N,JSON.stringify(notices));
+    var needSync=false;
+    if(cases.length===0){var r1=await fetch(API+'/cases?select=*&order=createdAt.desc',{headers:H});if(r1.ok){var d1=await r1.json();if(d1.length>0){cases=d1;needSync=true}}}
+    if(docs.length===0){var r2=await fetch(API+'/docs?select=*',{headers:H});if(r2.ok){var d2=await r2.json();if(d2.length>0){docs=d2;needSync=true}}}
+    if(notices.length===0){var r3=await fetch(API+'/notices?select=*',{headers:H});if(r3.ok){var d3=await r3.json();if(d3.length>0){notices=d3;needSync=true}}}
+    if(needSync){save();window._lastSync='⬇️ 从云端恢复了数据'}
   }catch(e){}
   window._supaOK=true;
   navTo('dashboard');
