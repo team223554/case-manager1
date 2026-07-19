@@ -78,7 +78,7 @@ td{padding:8px 7px;border-bottom:1px solid #f0f0f0}tr:hover{background:#fafafa}t
   <div class="user"><span id="sidebarUser">管理员</span></div>
 </div>
 <div class="main">
-  <div class="topbar"><h2 id="pageTitle">📊 仪表盘</h2><span style="font-size:12px;color:#999" id="clock"></span></div>
+  <div class="topbar"><h2 id="pageTitle">📊 仪表盘</h2><span style="font-size:11px;color:#52c41a" id="syncStatus"></span> <span style="font-size:12px;color:#999" id="clock"></span></div>
   <div class="content" id="pageContent"></div>
 </div>
 
@@ -107,7 +107,8 @@ async function syncToCloud(){
     if(cases.length)await fetch(API+'/cases',{method:'POST',headers:H,body:JSON.stringify(cases)});
     if(docs.length)await fetch(API+'/docs',{method:'POST',headers:H,body:JSON.stringify(docs)});
     if(notices.length)await fetch(API+'/notices',{method:'POST',headers:H,body:JSON.stringify(notices)});
-  }catch(e){}
+    window._lastSync='✅ '+new Date().toLocaleTimeString();
+  }catch(e){window._lastSync='❌ '+e.message}
 }
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,6)}
 function T(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
@@ -323,7 +324,7 @@ function openModal(html){let m=document.getElementById('modal');if(!m){m=documen
 function closeModal(){const m=document.getElementById('modal');if(m)m.classList.remove('show')}
 
 // ====== 初始化 ======
-setInterval(()=>{const el=document.getElementById('clock');if(el)el.textContent=new Date().toLocaleString('zh-CN')},1000);
+setInterval(()=>{const el=document.getElementById('clock');if(el)el.textContent=new Date().toLocaleString('zh-CN');const st=document.getElementById('syncStatus');if(st)st.textContent=window._lastSync||''},1000);
 (async function init(){
   try{
     var r1=await fetch(API+'/cases?select=*&order=createdAt.desc',{headers:H});
