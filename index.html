@@ -78,57 +78,34 @@ td{padding:8px 7px;border-bottom:1px solid #f0f0f0}tr:hover{background:#fafafa}t
   <div class="user"><span id="sidebarUser">管理员</span></div>
 </div>
 <div class="main">
-  <div class="topbar"><h2 id="pageTitle">📊 仪表盘</h2><span style="font-size:11px;color:#52c41a" id="syncStatus"></span> <span style="font-size:12px;color:#999" id="clock"></span></div>
+  <div class="topbar"><h2 id="pageTitle">📊 仪表盘</h2><span style="font-size:12px;color:#999" id="clock"></span></div>
   <div class="content" id="pageContent"></div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
 var XLSX_LOADED=false;
 </script>
 <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js" onload="XLSX_LOADED=true" onerror="XLSX_LOADED=false"></script>
 <script>
-// Supabase 配置（通过 REST API 访问，无需 SDK）
-var API='https://zeoijvshyxuqakruhejz.supabase.co/rest/v1';
-var KEY='sb_publishable_i6DaaPEmzECw7RtZ2_O2Yg_Pp-EXMOG';
-var H={"apikey":KEY,"Authorization":"Bearer "+KEY,"Content-Type":"application/json","Accept":"application/json","Prefer":"return=representation"};
-window._supaOK=true;
+// ⚠ 把下面的配置替换成你自己的Firebase配置（在Firebase控制台→项目设置→添加Web应用获取）
+const firebaseConfig = {
+  apiKey: "AIzaSy你的API密钥",
+  authDomain: "你的项目.firebaseapp.com",
+  projectId: "你的项目ID",
+  storageBucket: "你的项目.appspot.com",
+  messagingSenderId: "你的SenderId",
+  appId: "你的AppId"
+};
+let db=null,useCloud=false;
+try{firebase.initializeApp(firebaseConfig);db=firebase.firestore();useCloud=true;console.log('✅ 已连接Firebase云端同步')}catch(e){console.warn('⚠ Firebase连接失败，使用本地存储：'+e.message);useCloud=false}
 const LS_C='lawyer_cases',LS_D='lawyer_docs',LS_N='lawyer_notices',LS_T='lawyer_tags';
 let cases=JSON.parse(localStorage.getItem(LS_C)||'[]');
 let docs=JSON.parse(localStorage.getItem(LS_D)||'[]');
 let notices=JSON.parse(localStorage.getItem(LS_N)||'[]');
 let tags=JSON.parse(localStorage.getItem(LS_T)||'[]');
-function save(){localStorage.setItem(LS_C,JSON.stringify(cases));localStorage.setItem(LS_D,JSON.stringify(docs));localStorage.setItem(LS_N,JSON.stringify(notices));localStorage.setItem(LS_T,JSON.stringify(tags));syncToCloud()}
-function cleanFields(arr,cols){
-  return arr.map(function(r){
-    var o={};for(var k in r){if(cols.indexOf(k)>=0||k==='id')o[k]=r[k]}
-    if(!o.id)o.id=uid();return o;
-  });
-}
-var CASECOLS="id,createdAt,receiveDate,client,plaintiff,defendant,opponent,caseType,court,isPreserved,stage,hearingDate,caseNo,judge,isClosed,lawyer,phone,fee,evidenceDeadline,judgmentDate,note".split(",");
-var SUPACOLS=["id","createdAt","plaintiff","defendant","caseType","court","isPreserved","stage","hearingDate","caseNo","judge","isClosed","lawyer","phone","fee","evidenceDeadline","judgmentDate","note","receiveDate","client","opponent"];
-var DOCCOLS="id,caseId,name,url,type,createdAt".split(",");
-var NOTICECOLS="id,caseId,type,date,hearDate,hearPlace,url,note,createdAt,fileUrl,fileName,fileData".split(",");
-
-async function syncToCloud(){
-  if(!window._supaOK)return;
-  try{
-    if(cases.length){var cd=cleanFields(cases,SUPACOLS);var r=await fetch(API+'/cases',{method:'POST',headers:Object.assign({},H,{Prefer:'resolution=merge-duplicates'}),body:JSON.stringify(cd)});if(!r.ok)throw new Error('cases:'+r.status)}
-    if(docs.length){var dd=cleanFields(docs,DOCCOLS);var r2=await fetch(API+'/docs',{method:'POST',headers:Object.assign({},H,{Prefer:'resolution=merge-duplicates'}),body:JSON.stringify(dd)});if(!r2.ok)throw new Error('docs:'+r2.status)}
-    if(notices.length){var nd=cleanFields(notices,NOTICECOLS);var r3=await fetch(API+'/notices',{method:'POST',headers:Object.assign({},H,{Prefer:'resolution=merge-duplicates'}),body:JSON.stringify(nd)});if(!r3.ok)throw new Error('notices:'+r3.status)}
-    window._lastSync='✅ '+new Date().toLocaleTimeString();
-  }catch(e){window._lastSync='❌ '+e.message}
-}
-
-async function uploadToCloud(){
-  var m=document.getElementById('syncMsg');m.textContent='⏳ 上传中...';
-  try{
-    var ok=0;
-    if(cases.length){var cd=cleanFields(cases,CASECOLS);var r=await fetch(API+'/cases',{method:'POST',headers:H,body:JSON.stringify(cd)});if(!r.ok){var txt=await r.text();throw new Error(r.status+' '+txt.slice(0,200))}ok+=cases.length}
-    if(docs.length){var dd=cleanFields(docs,DOCCOLS);await fetch(API+'/docs',{method:'POST',headers:H,body:JSON.stringify(dd)})}
-    if(notices.length){var nd=cleanFields(notices,NOTICECOLS);await fetch(API+'/notices',{method:'POST',headers:H,body:JSON.stringify(nd)})}
-    m.textContent='✅ 上传成功（'+ok+'案件/'+docs.length+'文档/'+notices.length+'通知）';
-  }catch(e){m.textContent='❌ 上传失败：'+e.message}
-}
+function save(){localStorage.setItem(LS_C,JSON.stringify(cases));localStorage.setItem(LS_D,JSON.stringify(docs));localStorage.setItem(LS_N,JSON.stringify(notices));localStorage.setItem(LS_T,JSON.stringify(tags));if(useCloud&&db){try{db.collection('system').doc('data').set({cases,docs,notices,tags,updatedAt:new Date().toISOString()}).catch(()=>{})}catch(e){}}}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,6)}
 function T(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function P(c){return c.plaintiff||c.client||'—'}
@@ -248,10 +225,10 @@ function showDayEvents(ds){const de=cases.filter(c=>!c.isClosed).flatMap(c=>[{l:
 // ====== 法院通知 ======
 function renderNoticesPage(){
   const co=cases.map(c=>`<option value="${c.id}">${c.caseNo||'无案号'} - ${P(c)}</option>`).join('');
-  return`<div class="card"><h3>📬 新增通知</h3><div class="form-grid"><div class="form-group"><label>关联案件</label><select id="nt_caseId">${co}</select></div><div class="form-group"><label>类型</label><select id="nt_type"><option>传票</option><option>判决书</option><option>裁定书</option><option>举证通知书</option><option>其他</option></select></div><div class="form-group"><label>收到日期</label><input id="nt_date" type="date" value="${T()}"></div><div class="form-group"><label>链接</label><input id="nt_url"></div><div class="form-group"><label>备注</label><input id="nt_note"></div></div><button class="btn btn-primary" style="margin-top:10px" onclick="addNotice()">➕ 添加</button></div>
-  <div class="card"><h3>📋 通知列表（${notices.length}条）</h3>${notices.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n=>{const c=cases.find(x=>x.id===n.caseId);return`<div class="notice-item"><span>📬 <strong>${n.type}</strong> | ${c?c.caseNo:'未关联'} | ${n.date}</span><span><a href="${n.url||'#'}" target="_blank" style="color:var(--blue);margin-right:10px;font-size:12px">查看</a><button class="btn btn-danger btn-xs" onclick="delNotice('${n.id}')">🗑</button></span></div>`}).join('')||'<div class="empty">暂无</div>'}</div>`;
+  return`<div class="card"><h3>📬 新增通知</h3><div class="form-grid"><div class="form-group"><label>关联案件</label><select id="nt_caseId">${co}</select></div><div class="form-group"><label>类型</label><select id="nt_type"><option>传票</option><option>判决书</option><option>裁定书</option><option>举证通知书</option><option>其他</option></select></div><div class="form-group"><label>开庭时间</label><input id="nt_hearDate" type="datetime-local"></div><div class="form-group"><label>开庭地点</label><input id="nt_hearPlace"></div><div class="form-group"><label>收到日期</label><input id="nt_date" type="date" value="${T()}"></div><div class="form-group"><label>链接</label><input id="nt_url"></div><div class="form-group"><label>备注</label><input id="nt_note"></div></div><button class="btn btn-primary" style="margin-top:10px" onclick="addNotice()">➕ 添加</button></div>
+  <div class="card"><h3>📋 通知列表（${notices.length}条）</h3>${notices.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n=>{const c=cases.find(x=>x.id===n.caseId);return`<div class="notice-item"><span>📬 <strong>${n.type}</strong>${n.hearDate?' 🕐'+n.hearDate.replace('T',' ').slice(0,16):''}${n.hearPlace?' 📍'+n.hearPlace:''} | ${c?c.caseNo:'未关联'} | ${n.date}</span><span>${n.url?`<a href="${n.url}" target="_blank" style="color:var(--blue);margin-right:10px;font-size:12px">查看</a>`:''}<button class="btn btn-danger btn-xs" onclick="delNotice('${n.id}')">🗑</button></span></div>`}).join('')||'<div class="empty">暂无</div>'}</div>`;
 }
-function addNotice(){const g=v=>document.getElementById('nt_'+v).value;notices.push({id:uid(),caseId:g('caseId'),type:g('type'),date:g('date'),url:g('url'),note:g('note'),createdAt:new Date().toISOString()});save();navTo('notices')}
+function addNotice(){const g=v=>document.getElementById('nt_'+v).value;notices.push({id:uid(),caseId:g('caseId'),type:g('type'),date:g('date'),hearDate:g('hearDate'),hearPlace:g('hearPlace'),url:g('url'),note:g('note'),createdAt:new Date().toISOString()});save();navTo('notices')}
 function delNotice(id){notices=notices.filter(n=>n.id!==id);save();navTo('notices')}
 
 // ====== 文档管理 ======
@@ -260,7 +237,7 @@ function renderDocumentsPage(){
   const disk=localStorage.getItem('lcs_diskUrl')||'';
   const grouped={};docs.forEach(d=>{const c=cases.find(x=>x.id===d.caseId);const k=c?(c.caseNo||'无案号')+' - '+P(c):'未关联案件';if(!grouped[k])grouped[k]=[];grouped[k].push(d)});
   const sorted=Object.entries(grouped).sort((a,b)=>{const ca=cases.find(c=>a[0].includes(c.caseNo)&&a[0].includes(P(c)));const cb=cases.find(c=>b[0].includes(c.caseNo)&&b[0].includes(P(c)));const sa=ca?.stage||'';const sb=cb?.stage||'';const pa=sa.includes('待提交')||sa.includes('待立案')?0:sa.includes('待')?1:2;const pb=sb.includes('待提交')||sb.includes('待立案')?0:sb.includes('待')?1:2;return pa-pb||a[0].localeCompare(b[0])});
-  return`<div class="card"><h3>📤 上传文档</h3><div class="form-grid"><div class="form-group"><label>关联案件</label><select id="doc_caseId"><option value="">不关联</option>${co}</select></div><div class="form-group"><label>文档名称</label><input id="doc_name" placeholder="如：起诉状、判决书"></div><div class="form-group"><label>文档链接</label><input id="doc_url" placeholder="粘贴完整链接，如 https://www.123pan.com/s/xxx"></div><div class="form-group"><label>类型</label><select id="doc_type"><option>起诉状</option><option>答辩状</option><option>判决书</option><option>裁定书</option><option>证据材料</option><option>代理词</option><option>其他</option></select></div></div><button class="btn btn-primary" style="margin-top:10px" onclick="addDoc()">➕ 添加</button></div>
+  return`<div class="card"><h3>📤 上传文档</h3><div class="form-grid"><div class="form-group"><label>关联案件</label><select id="doc_caseId" onchange="autoFillDocLink()"><option value="">不关联</option>${co}</select></div><div class="form-group"><label>文档名称</label><input id="doc_name" placeholder="如：起诉状、判决书"></div><div class="form-group"><label>文档链接</label><input id="doc_url" value="${disk}" placeholder="网盘链接或本地路径"></div><div class="form-group"><label>类型</label><select id="doc_type"><option>起诉状</option><option>答辩状</option><option>判决书</option><option>裁定书</option><option>证据材料</option><option>代理词</option><option>其他</option></select></div></div><button class="btn btn-primary" style="margin-top:10px" onclick="addDoc()">➕ 添加</button></div>
   <div class="card"><h3>📁 文档列表（${docs.length}份）</h3><div class="search-row"><input type="text" id="docSearch" placeholder="搜索..." oninput="filterDocs()"><select id="docCaseFilter" onchange="filterDocs()"><option value="">📂 全部案件</option>${co}</select></div>${sorted.map(([k,list])=>`<div style="margin-bottom:10px"><div style="font-weight:600;font-size:13px;color:#1a3c5e;padding:6px 0;border-bottom:2px solid #e8e8e8">📂 ${k}（${list.length}份）</div>${list.map(d=>`<div class="doc-item"><span>📄 <strong>${d.name}</strong> <span class="tag">${d.type||'其他'}</span></span><span><a href="${d.url}" target="_blank" style="color:var(--blue);margin-right:10px;font-size:12px">打开</a><button class="btn btn-danger btn-xs" onclick="delDoc('${d.id}')">🗑</button></span></div>`).join('')}</div>`).join('')||'<div class="empty">暂无文档</div>'}</div>`;
 }
 function filterDocs(){navTo('documents')}
@@ -290,41 +267,9 @@ function renderLinksPage(){
 
 // ====== 系统设置 ======
 function renderSettingsPage(){
-  return`<div class="card"><h3>☁️ 数据同步</h3><p style="font-size:12px;color:#666;margin-bottom:8px">上传后同事可从云端下载，实现多人数据共享</p><div class="btn-group"><button class="btn btn-primary" onclick="uploadToCloud()">📤 上传到云端</button><button class="btn btn-outline" onclick="downloadFromCloud()">📥 从云端下载</button></div><div id="syncMsg" style="font-size:12px;color:var(--green);margin-top:8px"></div></div>
-  <div class="card"><h3>⚙ 默认网盘地址</h3><div class="form-group"><input id="set_diskUrl" value="${localStorage.getItem('lcs_diskUrl')||''}" placeholder="https://pan.baidu.com/s/..."></div><button class="btn btn-primary" style="margin-top:10px" onclick="localStorage.setItem('lcs_diskUrl',document.getElementById('set_diskUrl').value);alert('已保存')">💾 保存</button></div>
+  return`<div class="card"><h3>⚙ 默认网盘地址</h3><div class="form-group"><input id="set_diskUrl" value="${localStorage.getItem('lcs_diskUrl')||''}" placeholder="https://pan.baidu.com/s/..."></div><button class="btn btn-primary" style="margin-top:10px" onclick="localStorage.setItem('lcs_diskUrl',document.getElementById('set_diskUrl').value);alert('已保存')">💾 保存</button></div>
   <div class="card"><h3>💾 数据备份</h3><div class="btn-group"><button class="btn btn-primary" onclick="exportData()">📥 导出JSON备份</button><button class="btn btn-outline" onclick="importData()">📤 导入备份</button></div></div>
-  <div class="card"><h3>📊 导出导入</h3><div class="btn-group"><button class="btn btn-primary" onclick="exportCSV()">📤 导出CSV</button><button class="btn btn-outline" onclick="importCSV()">📥 导入CSV/XLSX</button></div></div>`;
-}
-
-var API='https://zeoijvshyxuqakruhejz.supabase.co/rest/v1';
-var KEY='sb_publishable_i6DaaPEmzECw7RtZ2_O2Yg_Pp-EXMOG';
-var H={"apikey":KEY,"Authorization":"Bearer "+KEY,"Content-Type":"application/json","Accept":"application/json","Prefer":"return=representation"};
-
-async function uploadToCloud(){
-  var m=document.getElementById('syncMsg');m.textContent='⏳ 上传中...';
-  try{
-    if(cases.length){var cd2=cleanFields(cases,SUPACOLS);var r=await fetch(API+'/cases',{method:'POST',headers:H,body:JSON.stringify(cd2)});if(!r.ok){var t=await r.text();throw new Error(r.status+' '+t.slice(0,300))}}
-    if(docs.length){var dd2=cleanFields(docs,DOCCOLS);await fetch(API+'/docs',{method:'POST',headers:H,body:JSON.stringify(dd2)})}
-    if(notices.length){var nd2=cleanFields(notices,NOTICECOLS);await fetch(API+'/notices',{method:'POST',headers:H,body:JSON.stringify(nd2)})}
-    m.textContent='✅ 上传成功（'+cases.length+'案件/'+docs.length+'文档/'+notices.length+'通知）';
-  }catch(e){m.textContent='❌ 上传失败：'+e.message}
-}
-
-async function downloadFromCloud(){
-  var m=document.getElementById('syncMsg');m.textContent='⏳ 下载中...';
-  try{
-    var r1=await fetch(API+'/cases?select=*&order=createdAt.desc',{headers:H});
-    var r2=await fetch(API+'/docs?select=*',{headers:H});
-    var r3=await fetch(API+'/notices?select=*',{headers:H});
-    var d1=await r1.json();var d2=await r2.json();var d3=await r3.json();
-    if(d1.length||d2.length||d3.length){
-      cases=d1;docs=d2;notices=d3;
-      localStorage.setItem('lawyer_cases',JSON.stringify(cases));
-      localStorage.setItem('lawyer_docs',JSON.stringify(docs));
-      localStorage.setItem('lawyer_notices',JSON.stringify(notices));
-      m.textContent='✅ 下载成功（'+cases.length+'案件/'+docs.length+'文档/'+notices.length+'通知），请切换到其他页面查看';
-    }else{m.textContent='⚠️ 云端无数据'}
-  }catch(e){m.textContent='❌ 下载失败：'+e.message}
+  <div class="card"><h3>📊 腾讯文档对接</h3><div class="btn-group"><button class="btn btn-primary" onclick="exportCSV()">📤 导出CSV</button><button class="btn btn-outline" onclick="importCSV()">📥 导入CSV/XLSX</button></div><div style="font-size:11px;color:#999;margin-top:8px">支持CSV和XLSX格式。XLSX按表头自动匹配列。</div></div>`;
 }
 function exportData(){const b=new Blob([JSON.stringify({cases,docs,notices,tags},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='案件备份-'+T()+'.json';a.click()}
 function importData(){const i=document.createElement('input');i.type='file';i.accept='.json';i.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);cases=d.cases||[];docs=d.docs||[];notices=d.notices||[];tags=d.tags||[];save();alert('导入成功');navTo('dashboard')}catch(ex){alert('文件错误')}};r.readAsText(f)};i.click()}
@@ -340,18 +285,19 @@ function openModal(html){let m=document.getElementById('modal');if(!m){m=documen
 function closeModal(){const m=document.getElementById('modal');if(m)m.classList.remove('show')}
 
 // ====== 初始化 ======
-setInterval(()=>{const el=document.getElementById('clock');if(el)el.textContent=new Date().toLocaleString('zh-CN');const st=document.getElementById('syncStatus');if(st)st.textContent=window._lastSync||''},1000);
-(async function init(){
-  try{
-    var needSync=false;
-    if(cases.length===0){var r1=await fetch(API+'/cases?select=*&order=createdAt.desc',{headers:H});if(r1.ok){var d1=await r1.json();if(d1.length>0){cases=d1;needSync=true}}}
-    if(docs.length===0){var r2=await fetch(API+'/docs?select=*',{headers:H});if(r2.ok){var d2=await r2.json();if(d2.length>0){docs=d2;needSync=true}}}
-    if(notices.length===0){var r3=await fetch(API+'/notices?select=*',{headers:H});if(r3.ok){var d3=await r3.json();if(d3.length>0){notices=d3;needSync=true}}}
-    if(needSync){save();window._lastSync='⬇️ 从云端恢复了数据'}
-  }catch(e){}
-  window._supaOK=true;
-  navTo('dashboard');
-})();
+setInterval(()=>{const el=document.getElementById('clock');if(el)el.textContent=new Date().toLocaleString('zh-CN')},1000);
+// 从云端加载数据
+if(useCloud&&db){
+  db.collection('system').doc('data').get().then(doc=>{
+    if(doc.exists){const d=doc.data();if(d.cases)cases=d.cases;if(d.docs)docs=d.docs;if(d.notices)notices=d.notices;if(d.tags)tags=d.tags;save();navTo('dashboard')}
+    else{initDefaults()}
+  }).catch(()=>{initDefaults()})
+}else{initDefaults()}
+function initDefaults(){
+if(cases.length===0){
+  cases=[{id:uid(),receiveDate:'2026-03-15',plaintiff:'田晓琴',defendant:'耿海军',caseType:'民间借贷',court:'郑州市二七区人民法院',isPreserved:false,stage:'审理',hearingDate:'2026-07-10T09:00',caseNo:'(2026)豫0103民初1234号',judge:'王法官 138XXXX',isClosed:false,lawyer:'张律师',fee:'5000',evidenceDeadline:'2026-06-25',note:'EMS已送达'},{id:uid(),receiveDate:'2026-05-20',plaintiff:'大连新越建筑劳务分包有限公司',defendant:'汪正华',caseType:'劳动争议',court:'卓资县劳动仲裁委',isPreserved:false,stage:'仲裁',hearingDate:'2026-08-01',caseNo:'卓劳人仲字(2026)第21号',judge:'',isClosed:false,lawyer:'张律师',fee:'8000',note:'工伤认定超期82天'},{id:uid(),receiveDate:'2025-08-06',plaintiff:'荆国良',defendant:'孟云',caseType:'合同纠纷',court:'郑州市二七区人民法院',isPreserved:false,stage:'已结案',hearingDate:'2026-05-06',caseNo:'(2025)豫0103民初16236号',judge:'陈法官',isClosed:true,lawyer:'李律师',fee:'3000',judgmentDate:'2026-05-06',note:'一审胜诉'},{id:uid(),receiveDate:'2026-06-20',plaintiff:'待填',defendant:'待填',caseType:'婚约财产纠纷',court:'新乡市XX人民法院',isPreserved:true,stage:'待立案',caseNo:'',judge:'',isClosed:false,lawyer:'张律师',note:'彩礼5万+保管款4万'}];
+  save();}
+navTo('dashboard');}
 </script>
 </body>
 </html>
