@@ -105,7 +105,7 @@ let cases=JSON.parse(localStorage.getItem(LS_C)||'[]');
 let docs=JSON.parse(localStorage.getItem(LS_D)||'[]');
 let notices=JSON.parse(localStorage.getItem(LS_N)||'[]');
 let tags=JSON.parse(localStorage.getItem(LS_T)||'[]');
-function save(){localStorage.setItem(LS_C,JSON.stringify(cases));localStorage.setItem(LS_D,JSON.stringify(docs));localStorage.setItem(LS_N,JSON.stringify(notices));localStorage.setItem(LS_T,JSON.stringify(tags));if(useCloud&&db){try{db.collection('system').doc('data').set({cases,docs,notices,tags,updatedAt:new Date().toISOString()}).catch(()=>{})}catch(e){}}}
+function save(){localStorage.setItem(LS_C,JSON.stringify(cases));localStorage.setItem(LS_D,JSON.stringify(docs));localStorage.setItem(LS_N,JSON.stringify(notices));localStorage.setItem(LS_T,JSON.stringify(tags));clearTimeout(window._st);window._st=setTimeout(function(){try{if(cases.length){fetch(API+'/cases?id=not.is.null',{method:'DELETE',headers:H}).then(function(){var cd=cleanFields(cases,SUPACOLS);fetch(API+'/cases',{method:'POST',headers:H,body:JSON.stringify(cd)})})}}catch(e){}},8000)}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,6)}
 function T(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function P(c){return c.plaintiff||c.client||'—'}
@@ -267,9 +267,50 @@ function renderLinksPage(){
 
 // ====== 系统设置 ======
 function renderSettingsPage(){
-  return`<div class="card"><h3>⚙ 默认网盘地址</h3><div class="form-group"><input id="set_diskUrl" value="${localStorage.getItem('lcs_diskUrl')||''}" placeholder="https://pan.baidu.com/s/..."></div><button class="btn btn-primary" style="margin-top:10px" onclick="localStorage.setItem('lcs_diskUrl',document.getElementById('set_diskUrl').value);alert('已保存')">💾 保存</button></div>
+  return`<div class="card"><h3>☁️ 云端同步</h3><div class="btn-group"><button class="btn btn-primary" onclick="uploadToCloud()">📤 上传到云端</button><button class="btn btn-outline" onclick="downloadFromCloud()">📥 从云端下载</button></div><div id="syncMsg" style="font-size:12px;color:var(--green);margin-top:8px"></div></div>
   <div class="card"><h3>💾 数据备份</h3><div class="btn-group"><button class="btn btn-primary" onclick="exportData()">📥 导出JSON备份</button><button class="btn btn-outline" onclick="importData()">📤 导入备份</button></div></div>
-  <div class="card"><h3>📊 腾讯文档对接</h3><div class="btn-group"><button class="btn btn-primary" onclick="exportCSV()">📤 导出CSV</button><button class="btn btn-outline" onclick="importCSV()">📥 导入CSV/XLSX</button></div><div style="font-size:11px;color:#999;margin-top:8px">支持CSV和XLSX格式。XLSX按表头自动匹配列。</div></div>`;
+  <div class="card"><h3>📊 导入导出</h3><div class="btn-group"><button class="btn btn-primary" onclick="exportCSV()">📤 导出CSV</button><button class="btn btn-outline" onclick="importCSV()">📥 导入CSV/XLSX</button></div></div>`;
+}
+
+var API='https://zeoijvshyxuqakruhejz.supabase.co/rest/v1';
+var KEY='sb_publishable_i6DaaPEmzECw7RtZ2_O2Yg_Pp-EXMOG';
+var H={"apikey":KEY,"Authorization":"Bearer "+KEY,"Content-Type":"application/json","Accept":"application/json"};
+
+function cleanFields(arr,cols){
+  return arr.map(function(r){
+    var o={};cols.forEach(function(k){o[k]=r[k]!==undefined?r[k]:''});
+    if(!o.id)o.id=uid();return o;
+  });
+}
+var SUPACOLS=["id","createdAt","plaintiff","defendant","caseType","court","isPreserved","stage","hearingDate","caseNo","judge","isClosed","lawyer","phone","fee","evidenceDeadline","judgmentDate","note","receiveDate","client","opponent"];
+var DOCCOLS=["id","caseId","name","url","type","createdAt"];
+var NOTICECOLS=["id","caseId","type","date","hearDate","hearPlace","url","note","createdAt","fileUrl","fileName","fileData"];
+
+async function uploadToCloud(){
+  var m=document.getElementById('syncMsg');m.textContent='⏳ 上传中...';
+  try{
+    if(cases.length){await fetch(API+'/cases?id=not.is.null',{method:'DELETE',headers:H});var cd2=cleanFields(cases,SUPACOLS);var r=await fetch(API+'/cases',{method:'POST',headers:H,body:JSON.stringify(cd2)});if(!r.ok){var t=await r.text();throw new Error(r.status+' '+t.slice(0,300))}}
+    if(docs.length){await fetch(API+'/docs?id=not.is.null',{method:'DELETE',headers:H});var dd2=cleanFields(docs,DOCCOLS);await fetch(API+'/docs',{method:'POST',headers:H,body:JSON.stringify(dd2)})}
+    if(notices.length){await fetch(API+'/notices?id=not.is.null',{method:'DELETE',headers:H});var nd2=cleanFields(notices,NOTICECOLS);await fetch(API+'/notices',{method:'POST',headers:H,body:JSON.stringify(nd2)})}
+    m.textContent='✅ 上传成功（'+cases.length+'案件/'+docs.length+'文档/'+notices.length+'通知）';
+  }catch(e){m.textContent='❌ 上传失败：'+e.message}
+}
+
+async function downloadFromCloud(){
+  var m=document.getElementById('syncMsg');m.textContent='⏳ 下载中...';
+  try{
+    var r1=await fetch(API+'/cases?select=*&order=createdAt.desc',{headers:H});
+    var r2=await fetch(API+'/docs?select=*',{headers:H});
+    var r3=await fetch(API+'/notices?select=*',{headers:H});
+    var d1=await r1.json();var d2=await r2.json();var d3=await r3.json();
+    if(d1.length||d2.length||d3.length){
+      cases=d1;docs=d2;notices=d3;
+      localStorage.setItem('lawyer_cases',JSON.stringify(cases));
+      localStorage.setItem('lawyer_docs',JSON.stringify(docs));
+      localStorage.setItem('lawyer_notices',JSON.stringify(notices));
+      m.textContent='✅ 下载成功（'+cases.length+'案件/'+docs.length+'文档/'+notices.length+'通知）';
+    }else{m.textContent='⚠️ 云端无数据'}
+  }catch(e){m.textContent='❌ 下载失败：'+e.message}
 }
 function exportData(){const b=new Blob([JSON.stringify({cases,docs,notices,tags},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='案件备份-'+T()+'.json';a.click()}
 function importData(){const i=document.createElement('input');i.type='file';i.accept='.json';i.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);cases=d.cases||[];docs=d.docs||[];notices=d.notices||[];tags=d.tags||[];save();alert('导入成功');navTo('dashboard')}catch(ex){alert('文件错误')}};r.readAsText(f)};i.click()}
