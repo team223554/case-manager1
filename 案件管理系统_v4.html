@@ -343,15 +343,22 @@ setInterval(()=>{const el=document.getElementById('clock');if(el)el.textContent=
     if(d1.length > localC){cases=d1;localStorage.setItem(LS_C,JSON.stringify(cases))}
     if(d2.length > localD){docs=d2;localStorage.setItem(LS_D,JSON.stringify(docs))}
     if(d3.length > localN){notices=d3;localStorage.setItem(LS_N,JSON.stringify(notices))}
-    // 如果本地有数据但云端为空，立即上传本地到云端
-    if(localC > 0 && d1.length === 0){console.log('本地有'+localC+'条，云端为空，将在8秒后自动上传')}
-    console.log('✅ 加载完成: '+cases.length+'案件('+localC+'本地/'+d1.length+'云端) '+docs.length+'文档 '+notices.length+'通知');
+    // 如果本地有数据但云端为空/更少，立即上传本地到云端
+    var needUpload=false;
+    if(localC > 0 && d1.length < localC){needUpload=true}
+    if(localD > 0 && d2.length < localD){needUpload=true}
+    if(localN > 0 && d3.length < localN){needUpload=true}
+    if(needUpload){console.log('📤 本地数据更多，立即上传到云端...');syncNow()}
+    console.log('✅ 加载: '+cases.length+'案件('+localC+'本地/'+d1.length+'云端) '+docs.length+'文档 '+notices.length+'通知');
     navTo('dashboard');
   }).catch(function(){
-    console.log('⚠ 云端加载失败，使用本地数据('+cases.length+'案件)');
+    console.log('⚠ 云端加载失败，使用本地数据('+cases.length+'案件 '+notices.length+'通知)');
     navTo('dashboard');
   });
 })();
+// 立即同步（不等8秒防抖）
+function syncNow(){
+  try{var p=[];p.push(fetch(API+'/cases?id=not.is.null',{method:'DELETE',headers:H}).then(function(){if(cases.length){var cd=cleanFields(cases,SUPACOLS);return fetch(API+'/cases',{method:'POST',headers:H,body:JSON.stringify(cd)})}}));if(docs.length){p.push(fetch(API+'/docs?id=not.is.null',{method:'DELETE',headers:H}).then(function(){var dd=cleanFields(docs,DOCCOLS);return fetch(API+'/docs',{method:'POST',headers:H,body:JSON.stringify(dd)})}))}if(notices.length){p.push(fetch(API+'/notices?id=not.is.null',{method:'DELETE',headers:H}).then(function(){var nd=cleanFields(notices,NOTICECOLS);return fetch(API+'/notices',{method:'POST',headers:H,body:JSON.stringify(nd)})}))}Promise.all(p).then(function(){console.log('✅ 立即同步完成')}).catch(function(e){console.warn('同步失败:',e)})}catch(e){}}
 </script>
 </body>
 </html>
