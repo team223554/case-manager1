@@ -130,7 +130,8 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(
 function T(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function P(c){return c.plaintiff||c.client||'—'}
 function D(c){return c.defendant||c.opponent||'—'}
-function PN(c){var p=P(c),d=D(c);if(p!=='—'&&d!=='—')return p+' ↔ '+d;if(p!=='—')return p;if(d!=='—')return d;return '—'}
+function S(c){return c.clientSide||''}
+function PN(c){var p=P(c),d=D(c),s=S(c);if(s==='原告'||s==='申请人')return '🔷'+p+(d!=='—'?' ↔ '+d:'');if(s==='被告'||s==='被申请人')return p+(d!=='—'?' ↔ 🔶'+d:'');return p+(d!=='—'?' ↔ '+d:'')}
 
 // Toast 通知
 function showToast(msg,type){type=type||'info';var t=document.getElementById('toast');if(!t){t=document.createElement('div');t.id='toast';t.style='position:fixed;top:20px;right:20px;z-index:9999;padding:12px 20px;border-radius:8px;font-size:13px;color:#fff;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.15);transition:all .3s;opacity:0;transform:translateY(-10px)';document.body.appendChild(t)}t.textContent=msg;t.style.background=type==='success'?'#52c41a':type==='error'?'#ff4d4f':'#1890ff';t.style.opacity='1';t.style.transform='translateY(0)';clearTimeout(t._timer);t._timer=setTimeout(function(){t.style.opacity='0';t.style.transform='translateY(-10px)'},3000)}
@@ -205,6 +206,7 @@ function showCaseForm(id){
     <div class="form-group"><label>进行阶段</label><select id="cf_stage"><option value="">—</option><option>待提交</option><option>待立案</option><option>待质证</option><option>待开庭</option><option>待判决</option><option>待执行</option><option>等仲裁</option><option>等仲裁结果</option><option>已调解</option><option>已结案</option></select></div>
     <div class="form-group"><label>开庭时间</label><input id="cf_hearingDate" type="datetime-local" value="${d.hearingDate||''}"></div>
     <div class="form-group"><label>案号</label><input id="cf_caseNo" value="${d.caseNo||''}"></div>
+    <div class="form-group"><label>代理方</label><select id="cf_clientSide"><option value="" ${!d.clientSide?'selected':''}>—</option><option value="原告" ${d.clientSide==='原告'?'selected':''}>原告</option><option value="被告" ${d.clientSide==='被告'?'selected':''}>被告</option><option value="申请人" ${d.clientSide==='申请人'?'selected':''}>申请人</option><option value="被申请人" ${d.clientSide==='被申请人'?'selected':''}>被申请人</option></select></div>
     <div class="form-group"><label>承办法官/联系方式</label><input id="cf_judge" value="${d.judge||''}" placeholder="姓名 电话"></div>
     <div class="form-group"><label>是否结案</label><select id="cf_isClosed"><option value="0" ${!d.isClosed?'selected':''}>否</option><option value="1" ${d.isClosed?'selected':''}>是</option></select></div>
     <div class="form-group"><label>律师</label><input id="cf_lawyer" value="${d.lawyer||''}"></div>
@@ -219,7 +221,7 @@ function showCaseForm(id){
 }
 function saveCase(){
   const g=v=>document.getElementById('cf_'+v)?.value||'';
-  const data={id:window._caseEditId||uid(),receiveDate:g('receiveDate'),plaintiff:g('plaintiff'),defendant:g('defendant'),caseType:g('caseType'),court:g('court'),isPreserved:g('isPreserved')==='1',stage:g('stage'),hearingDate:g('hearingDate'),caseNo:g('caseNo'),judge:g('judge'),isClosed:g('isClosed')==='1',lawyer:g('lawyer'),phone:g('phone'),fee:g('fee'),evidenceDeadline:g('evidenceDeadline'),judgmentDate:g('judgmentDate'),note:g('note'),createdAt:g('receiveDate')||T()};
+  const data={id:window._caseEditId||uid(),receiveDate:g('receiveDate'),plaintiff:g('plaintiff'),defendant:g('defendant'),caseType:g('caseType'),court:g('court'),isPreserved:g('isPreserved')==='1',stage:g('stage'),hearingDate:g('hearingDate'),caseNo:g('caseNo'),judge:g('judge'),isClosed:g('isClosed')==='1',lawyer:g('lawyer'),phone:g('phone'),fee:g('fee'),evidenceDeadline:g('evidenceDeadline'),judgmentDate:g('judgmentDate'),note:g('note'),clientSide:g('clientSide'),createdAt:g('receiveDate')||T()};
   if(window._caseEditId){const i=cases.findIndex(c=>c.id===window._caseEditId);if(i>=0)cases[i]=data}else cases.push(data);
   save();closeModal();navTo('cases');
 }
@@ -306,7 +308,7 @@ function cleanFields(arr,cols){
     if(!o.id)o.id=uid();return o;
   });
 }
-var SUPACOLS=["id","createdAt","plaintiff","defendant","caseType","court","isPreserved","stage","hearingDate","caseNo","judge","isClosed","lawyer","phone","fee","evidenceDeadline","judgmentDate","note","receiveDate","client","opponent"];
+var SUPACOLS=["id","createdAt","plaintiff","defendant","caseType","court","isPreserved","stage","hearingDate","caseNo","judge","isClosed","lawyer","phone","fee","evidenceDeadline","judgmentDate","note","receiveDate","client","opponent","clientSide"];
 var DOCCOLS=["id","caseId","name","url","type","createdAt"];
 var NOTICECOLS=["id","caseId","type","date","hearDate","hearPlace","url","note","createdAt","fileUrl","fileName","fileData"];
 
