@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -59,26 +59,46 @@ td{padding:8px 7px;border-bottom:1px solid #f0f0f0}tr:hover{background:#fafafa}t
 .tool-card:hover{transform:translateY(-2px);box-shadow:0 3px 8px rgba(0,0,0,.1)}
 .tool-card .icon{font-size:28px;margin-bottom:8px}.tool-card .name{font-size:13px;font-weight:500}
 .link-card{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border-radius:6px;margin-bottom:6px;font-size:13px;cursor:pointer}
-.link-card:hover{background:#f0f5ff}@media(max-width:900px){.sidebar{width:60px}.main{margin-left:60px}}.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:999;display:none;justify-content:center;align-items:center}.modal-overlay.show{display:flex}.modal-content{background:#fff;border-radius:10px;padding:24px;max-width:720px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,.15)}
+.link-card:hover{background:#f0f5ff}
+/* 手机端适配 */
+@media(max-width:768px){
+  .sidebar{width:50px;overflow:hidden}
+  .sidebar .logo{font-size:0;padding:10px 5px;text-align:center}.sidebar .logo::after{content:'⚖';font-size:18px}
+  .sidebar nav a{font-size:0;justify-content:center;padding:10px 0}
+  .sidebar nav a::before{font-size:16px;content:attr(data-icon)}
+  .sidebar .user{display:none}
+  .main{margin-left:50px}
+  .topbar{padding:8px 12px}.topbar h2{font-size:14px}
+  .content{padding:8px}
+  .card{padding:12px;margin-bottom:8px}
+  .stats{grid-template-columns:repeat(2,1fr);gap:8px}
+  .stat-card{padding:10px}.stat-card .num{font-size:22px}
+  .form-grid{grid-template-columns:1fr}
+  .search-row{flex-direction:column}
+  table{font-size:10px}th,td{padding:5px 3px}
+  .btn{font-size:11px;padding:5px 12px}
+  .modal-content{max-width:95%;padding:14px;max-height:90vh}
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:999;display:none;justify-content:center;align-items:center}.modal-overlay.show{display:flex}.modal-content{background:#fff;border-radius:10px;padding:24px;max-width:720px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,.15)}
 </style>
 </head>
 <body>
 <div class="sidebar">
   <div class="logo">⚖ 案管系统</div>
   <nav>
-    <a class="active" onclick="navTo('dashboard')">📊 仪表盘</a>
-    <a onclick="navTo('cases')">📋 案件管理</a>
-    <a onclick="navTo('schedule')">📅 日程管理</a>
-    <a onclick="navTo('notices')">📬 法院通知</a>
-    <a onclick="navTo('documents')">📁 文档管理</a>
-    <a onclick="navTo('tools')">🔧 实用工具</a>
-    <a onclick="navTo('links')">🔗 常用网址</a>
-    <a onclick="navTo('settings')">⚙ 系统设置</a>
+    <a class="active" data-icon="📊" onclick="navTo('dashboard')">📊 仪表盘</a>
+    <a data-icon="📋" onclick="navTo('cases')">📋 案件管理</a>
+    <a data-icon="📅" onclick="navTo('schedule')">📅 日程管理</a>
+    <a data-icon="📬" onclick="navTo('notices')">📬 法院通知</a>
+    <a data-icon="📁" onclick="navTo('documents')">📁 文档管理</a>
+    <a data-icon="🔧" onclick="navTo('tools')">🔧 实用工具</a>
+    <a data-icon="🔗" onclick="navTo('links')">🔗 常用网址</a>
+    <a data-icon="⚙" onclick="navTo('settings')">⚙ 系统设置</a>
   </nav>
   <div class="user"><span id="sidebarUser">管理员</span></div>
 </div>
 <div class="main">
-  <div class="topbar"><h2 id="pageTitle">📊 仪表盘</h2><span style="font-size:12px;color:#999" id="clock"></span></div>
+  <div class="topbar"><h2 id="pageTitle">📊 仪表盘</h2><span style="font-size:12px;color:#999;margin-left:auto" id="syncDot"></span><span style="font-size:12px;color:#999" id="clock"></span></div>
   <div class="content" id="pageContent"></div>
 </div>
 
@@ -105,11 +125,18 @@ let cases=JSON.parse(localStorage.getItem(LS_C)||'[]');
 let docs=JSON.parse(localStorage.getItem(LS_D)||'[]');
 let notices=JSON.parse(localStorage.getItem(LS_N)||'[]');
 let tags=JSON.parse(localStorage.getItem(LS_T)||'[]');
-function save(){localStorage.setItem(LS_C,JSON.stringify(cases));localStorage.setItem(LS_D,JSON.stringify(docs));localStorage.setItem(LS_N,JSON.stringify(notices));localStorage.setItem(LS_T,JSON.stringify(tags));clearTimeout(window._st);window._st=setTimeout(function(){try{if(cases.length){fetch(API+'/cases?id=not.is.null',{method:'DELETE',headers:H}).then(function(){var cd=cleanFields(cases,SUPACOLS);fetch(API+'/cases',{method:'POST',headers:H,body:JSON.stringify(cd)})})}}catch(e){}},8000)}
+function save(){localStorage.setItem(LS_C,JSON.stringify(cases));localStorage.setItem(LS_D,JSON.stringify(docs));localStorage.setItem(LS_N,JSON.stringify(notices));localStorage.setItem(LS_T,JSON.stringify(tags));clearTimeout(window._st);window._st=setTimeout(function(){try{var p=[];p.push(fetch(API+'/cases?id=not.is.null',{method:'DELETE',headers:H}).then(function(){if(cases.length){var cd=cleanFields(cases,SUPACOLS);return fetch(API+'/cases',{method:'POST',headers:H,body:JSON.stringify(cd)})}}));if(docs.length){p.push(fetch(API+'/docs?id=not.is.null',{method:'DELETE',headers:H}).then(function(){var dd=cleanFields(docs,DOCCOLS);return fetch(API+'/docs',{method:'POST',headers:H,body:JSON.stringify(dd)})}))}if(notices.length){p.push(fetch(API+'/notices?id=not.is.null',{method:'DELETE',headers:H}).then(function(){var nd=cleanFields(notices,NOTICECOLS);return fetch(API+'/notices',{method:'POST',headers:H,body:JSON.stringify(nd)})}))}setSync('syncing');Promise.all(p).then(function(){console.log('✅ 已同步');setSync('ok')}).catch(function(e){console.warn('同步失败:',e);setSync('error');setSync('error')})}catch(e){}},8000)}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,6)}
 function T(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function P(c){return c.plaintiff||c.client||'—'}
 function D(c){return c.defendant||c.opponent||'—'}
+function S(c){return c.clientSide||''}
+function PN(c){var p=P(c),d=D(c),s=S(c);if(s==='原告'||s==='申请人')return '🔷'+p+(d!=='—'?' ↔ '+d:'');if(s==='被告'||s==='被申请人')return p+(d!=='—'?' ↔ 🔶'+d:'');return p+(d!=='—'?' ↔ '+d:'')}
+
+// Toast 通知
+function showToast(msg,type){type=type||'info';var t=document.getElementById('toast');if(!t){t=document.createElement('div');t.id='toast';t.style='position:fixed;top:20px;right:20px;z-index:9999;padding:12px 20px;border-radius:8px;font-size:13px;color:#fff;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.15);transition:all .3s;opacity:0;transform:translateY(-10px)';document.body.appendChild(t)}t.textContent=msg;t.style.background=type==='success'?'#52c41a':type==='error'?'#ff4d4f':'#1890ff';t.style.opacity='1';t.style.transform='translateY(0)';clearTimeout(t._timer);t._timer=setTimeout(function(){t.style.opacity='0';t.style.transform='translateY(-10px)'},3000)}
+// 同步状态灯
+function setSync(state){var d=document.getElementById('syncDot');if(!d)return;if(state==='ok'){d.innerHTML='<span style=display:inline-block;width:8px;height:8px;border-radius:50%;background:#52c41a;margin-right:4px></span>已同步'}else if(state==='syncing'){d.innerHTML='<span style=display:inline-block;width:8px;height:8px;border-radius:50%;background:#faad14;animation:pulse 1.5s infinite;margin-right:4px></span>同步中'}else if(state==='error'){d.innerHTML='<span style=display:inline-block;width:8px;height:8px;border-radius:50%;background:#ff4d4f;margin-right:4px></span>同步失败'}else if(state==='local'){d.innerHTML='<span style=display:inline-block;width:8px;height:8px;border-radius:50%;background:#1890ff;margin-right:4px></span>仅本地'}}
 
 const titles={dashboard:'📊 仪表盘',cases:'📋 案件管理',schedule:'📅 日程管理',notices:'📬 法院通知',documents:'📁 文档管理',tools:'🔧 实用工具',links:'🔗 常用网址',settings:'⚙ 系统设置'};
 function navTo(page){
@@ -147,7 +174,7 @@ function renderDashboard(){
       <div class="card"><h3>⚖ 待质证/待开庭</h3><div style="text-align:center;padding:10px"><div style="font-size:36px;font-weight:bold;color:${trial.length>0?'var(--red)':'var(--green)'}">${trial.length}</div><div style="font-size:13px;color:#999">件待质证/待开庭</div></div>${trial.map(x=>`<div style="padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:12px;display:flex;justify-content:space-between"><span>${x.caseNo||'无案号'} ${P(x)}</span><span style="color:var(--orange)">${x.hearingDate?(x.hearingDate.replace(/^\d{4}-/,'').replace('T',' ').slice(0,11)):'未定'}</span></div>`).join('')}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-      <div class="card"><h3>📬 最近法院通知</h3>${(()=>{const rn=notices.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,5);return rn.length?rn.map(n=>{const c=cases.find(x=>x.id===n.caseId);return`<div style="padding:8px 0;border-bottom:1px solid #f5f5f5;font-size:12px"><span class="tag t-pending">${n.type}</span> ${n.date||''} | ${c?P(c):'未关联'} | ${n.note||''}</div>`}).join(''):'<div class="empty">暂无通知</div>'})()}</div>
+      <div class="card"><h3>📬 最近法院通知</h3>${(()=>{const rn=notices.sort((a,b)=>{var da=a.hearDate?new Date(a.hearDate):null;var db=b.hearDate?new Date(b.hearDate):null;if(da&&db)return da-db;if(da&&!db)return -1;if(!da&&db)return 1;return new Date(b.createdAt)-new Date(a.createdAt)}).slice(0,5);return rn.length?rn.map(n=>{const c=cases.find(x=>x.id===n.caseId);return`<div style="padding:8px 0;border-bottom:1px solid #f5f5f5;font-size:12px"><span class="tag t-pending">${n.type}</span> ${n.date||''} | ${c?P(c):'未关联'} | ${n.note||''}</div>`}).join(''):'<div class="empty">暂无通知</div>'})()}</div>
       <div class="card"><h3>📅 今日待办</h3>${(()=>{const ts=T();const te=cases.filter(c=>!c.isClosed).flatMap(c=>[{l:'开庭',d:c.hearingDate,c:c},{l:'举证期限',d:c.evidenceDeadline,c:c}].filter(x=>x.d&&x.d.startsWith(ts)));return te.length?te.map(e=>`<div style="padding:8px 0;border-bottom:1px solid #f5f5f5;font-size:12px;font-weight:600;color:var(--red)">⚠️ ${e.l} | ${e.c.caseNo||'无案号'} | ${P(e.c)}</div>`).join(''):'<div class="empty">📌 今日无待办</div>'})()}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
       <div class="card" style="padding:10px"><h3 style="font-size:12px;margin-bottom:4px">案件类型统计</h3><div style="display:flex;align-items:flex-end;gap:12px;height:60px;padding:4px 0">${Object.entries(typeCount).map(([k,v])=>`<div style="display:flex;flex-direction:column;align-items:center;flex:1"><div style="font-size:11px;font-weight:bold">${v}</div><div style="width:30px;border-radius:3px 3px 0 0;background:hsl(${Math.random()*360},55%,55%);height:${v/maxT*50}px"></div><div style="font-size:9px;color:#888;margin-top:2px">${k}</div></div>`).join('')}</div></div>
@@ -181,6 +208,7 @@ function showCaseForm(id){
     <div class="form-group"><label>进行阶段</label><select id="cf_stage"><option value="">—</option><option>待提交</option><option>待立案</option><option>待质证</option><option>待开庭</option><option>待判决</option><option>待执行</option><option>等仲裁</option><option>等仲裁结果</option><option>已调解</option><option>已结案</option></select></div>
     <div class="form-group"><label>开庭时间</label><input id="cf_hearingDate" type="datetime-local" value="${d.hearingDate||''}"></div>
     <div class="form-group"><label>案号</label><input id="cf_caseNo" value="${d.caseNo||''}"></div>
+    <div class="form-group"><label>代理方</label><select id="cf_clientSide"><option value="" ${!d.clientSide?'selected':''}>—</option><option value="原告" ${d.clientSide==='原告'?'selected':''}>原告</option><option value="被告" ${d.clientSide==='被告'?'selected':''}>被告</option><option value="申请人" ${d.clientSide==='申请人'?'selected':''}>申请人</option><option value="被申请人" ${d.clientSide==='被申请人'?'selected':''}>被申请人</option></select></div>
     <div class="form-group"><label>承办法官/联系方式</label><input id="cf_judge" value="${d.judge||''}" placeholder="姓名 电话"></div>
     <div class="form-group"><label>是否结案</label><select id="cf_isClosed"><option value="0" ${!d.isClosed?'selected':''}>否</option><option value="1" ${d.isClosed?'selected':''}>是</option></select></div>
     <div class="form-group"><label>律师</label><input id="cf_lawyer" value="${d.lawyer||''}"></div>
@@ -195,7 +223,7 @@ function showCaseForm(id){
 }
 function saveCase(){
   const g=v=>document.getElementById('cf_'+v)?.value||'';
-  const data={id:window._caseEditId||uid(),receiveDate:g('receiveDate'),plaintiff:g('plaintiff'),defendant:g('defendant'),caseType:g('caseType'),court:g('court'),isPreserved:g('isPreserved')==='1',stage:g('stage'),hearingDate:g('hearingDate'),caseNo:g('caseNo'),judge:g('judge'),isClosed:g('isClosed')==='1',lawyer:g('lawyer'),phone:g('phone'),fee:g('fee'),evidenceDeadline:g('evidenceDeadline'),judgmentDate:g('judgmentDate'),note:g('note'),createdAt:g('receiveDate')||T()};
+  const data={id:window._caseEditId||uid(),receiveDate:g('receiveDate'),plaintiff:g('plaintiff'),defendant:g('defendant'),caseType:g('caseType'),court:g('court'),isPreserved:g('isPreserved')==='1',stage:g('stage'),hearingDate:g('hearingDate'),caseNo:g('caseNo'),judge:g('judge'),isClosed:g('isClosed')==='1',lawyer:g('lawyer'),phone:g('phone'),fee:g('fee'),evidenceDeadline:g('evidenceDeadline'),judgmentDate:g('judgmentDate'),note:g('note'),clientSide:g('clientSide'),createdAt:g('receiveDate')||T()};
   if(window._caseEditId){const i=cases.findIndex(c=>c.id===window._caseEditId);if(i>=0)cases[i]=data}else cases.push(data);
   save();closeModal();navTo('cases');
 }
@@ -226,7 +254,7 @@ function showDayEvents(ds){const de=cases.filter(c=>!c.isClosed).flatMap(c=>[{l:
 function renderNoticesPage(){
   const co=cases.map(c=>`<option value="${c.id}">${c.caseNo||'无案号'} - ${P(c)}</option>`).join('');
   return`<div class="card"><h3>📬 新增通知</h3><div class="form-grid"><div class="form-group"><label>关联案件</label><select id="nt_caseId">${co}</select></div><div class="form-group"><label>类型</label><select id="nt_type"><option>传票</option><option>判决书</option><option>裁定书</option><option>举证通知书</option><option>其他</option></select></div><div class="form-group"><label>开庭时间</label><input id="nt_hearDate" type="datetime-local"></div><div class="form-group"><label>开庭地点</label><input id="nt_hearPlace"></div><div class="form-group"><label>收到日期</label><input id="nt_date" type="date" value="${T()}"></div><div class="form-group"><label>上传文件</label><input id="nt_file" type="file" accept=".pdf,.jpg,.png,.jpeg,.webp" style="font-size:11px"></div><div class="form-group"><label>链接</label><input id="nt_url"></div><div class="form-group"><label>备注</label><input id="nt_note"></div></div><button class="btn btn-primary" style="margin-top:10px" onclick="addNotice()">➕ 添加</button></div>
-  <div class="card"><h3>📋 通知列表（${notices.length}条）</h3>${notices.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n=>{const c=cases.find(x=>x.id===n.caseId);return`<div class="notice-item"><span>📬 <strong>${n.type}</strong>${n.hearDate?' 🕐'+n.hearDate.replace('T',' ').slice(0,16):''}${n.hearPlace?' 📍'+n.hearPlace:''} | <strong>${c?(c.caseNo||'无案号')+' '+P(c):'未关联'}</strong> | ${n.date}${n.fileData?` <a href="${n.fileData}" download="${n.fileName||'文件'}" target="_blank">📎文件</a>`:''}${n.url?` <a href="${n.url}" target="_blank" style="color:var(--blue);font-size:11px">🔗</a>`:''}</span><button class="btn btn-danger btn-xs" onclick="delNotice('${n.id}')">🗑</button></div>`}).join('')||'<div class="empty">暂无</div>'}</div>`;
+  <div class="card"><h3>📋 通知列表（${notices.length}条）</h3>${notices.sort((a,b)=>{var da=a.hearDate?new Date(a.hearDate):null;var db=b.hearDate?new Date(b.hearDate):null;if(da&&db)return da-db;if(da&&!db)return -1;if(!da&&db)return 1;return new Date(b.createdAt)-new Date(a.createdAt)}).map(n=>{const c=cases.find(x=>x.id===n.caseId);return`<div class="notice-item"><span>📬 <strong>${n.type}</strong>${n.hearDate?' 🕐'+n.hearDate.replace('T',' ').slice(0,16):''}${n.hearPlace?' 📍'+n.hearPlace:''} | <strong>${c?(c.caseNo||'无案号')+' | '+PN(c):'未关联'}</strong> | ${n.date}${n.fileData?` <a href="${n.fileData}" download="${n.fileName||'文件'}" target="_blank">📎文件</a>`:''}${n.url?` <a href="${n.url}" target="_blank" style="color:var(--blue);font-size:11px">🔗</a>`:''}</span><button class="btn btn-danger btn-xs" onclick="delNotice('${n.id}')">🗑</button></div>`}).join('')||'<div class="empty">暂无</div>'}</div>`;
 }
 function addNotice(){const g=v=>document.getElementById('nt_'+v).value;var fe=document.getElementById('nt_file');if(fe&&fe.files[0]){var f=fe.files[0];var reader=new FileReader();reader.onload=function(e){notices.push({id:uid(),caseId:g('caseId'),type:g('type'),date:g('date'),hearDate:g('hearDate'),hearPlace:g('hearPlace'),fileName:f.name,fileData:e.target.result,url:g('url'),note:g('note'),createdAt:new Date().toISOString()});save();navTo('notices')};reader.readAsDataURL(f)}else{notices.push({id:uid(),caseId:g('caseId'),type:g('type'),date:g('date'),hearDate:g('hearDate'),hearPlace:g('hearPlace'),url:g('url'),note:g('note'),createdAt:new Date().toISOString()});save();navTo('notices')}}
 function delNotice(id){notices=notices.filter(n=>n.id!==id);save();navTo('notices')}
@@ -282,7 +310,7 @@ function cleanFields(arr,cols){
     if(!o.id)o.id=uid();return o;
   });
 }
-var SUPACOLS=["id","createdAt","plaintiff","defendant","caseType","court","isPreserved","stage","hearingDate","caseNo","judge","isClosed","lawyer","phone","fee","evidenceDeadline","judgmentDate","note","receiveDate","client","opponent"];
+var SUPACOLS=["id","createdAt","plaintiff","defendant","caseType","court","isPreserved","stage","hearingDate","caseNo","judge","isClosed","lawyer","phone","fee","evidenceDeadline","judgmentDate","note","receiveDate","client","opponent","clientSide"];
 var DOCCOLS=["id","caseId","name","url","type","createdAt"];
 var NOTICECOLS=["id","caseId","type","date","hearDate","hearPlace","url","note","createdAt","fileUrl","fileName","fileData"];
 
@@ -325,20 +353,38 @@ function importCSV(){
 function openModal(html){let m=document.getElementById('modal');if(!m){m=document.createElement('div');m.id='modal';m.className='modal-overlay';m.innerHTML='<div class="modal-content" id="modalContent"></div>';m.onclick=function(e){if(e.target===this)closeModal()};document.body.appendChild(m)}document.getElementById('modalContent').innerHTML=html;m.classList.add('show')}
 function closeModal(){const m=document.getElementById('modal');if(m)m.classList.remove('show')}
 
-// ====== 初始化 ======
+// ====== 初始化 —— 自动从云端加载 ======
 setInterval(()=>{const el=document.getElementById('clock');if(el)el.textContent=new Date().toLocaleString('zh-CN')},1000);
-// 从云端加载数据
-if(useCloud&&db){
-  db.collection('system').doc('data').get().then(doc=>{
-    if(doc.exists){const d=doc.data();if(d.cases)cases=d.cases;if(d.docs)docs=d.docs;if(d.notices)notices=d.notices;if(d.tags)tags=d.tags;save();navTo('dashboard')}
-    else{initDefaults()}
-  }).catch(()=>{initDefaults()})
-}else{initDefaults()}
-function initDefaults(){
-if(cases.length===0){
-  cases=[{id:uid(),receiveDate:'2026-03-15',plaintiff:'田晓琴',defendant:'耿海军',caseType:'民间借贷',court:'郑州市二七区人民法院',isPreserved:false,stage:'审理',hearingDate:'2026-07-10T09:00',caseNo:'(2026)豫0103民初1234号',judge:'王法官 138XXXX',isClosed:false,lawyer:'张律师',fee:'5000',evidenceDeadline:'2026-06-25',note:'EMS已送达'},{id:uid(),receiveDate:'2026-05-20',plaintiff:'大连新越建筑劳务分包有限公司',defendant:'汪正华',caseType:'劳动争议',court:'卓资县劳动仲裁委',isPreserved:false,stage:'仲裁',hearingDate:'2026-08-01',caseNo:'卓劳人仲字(2026)第21号',judge:'',isClosed:false,lawyer:'张律师',fee:'8000',note:'工伤认定超期82天'},{id:uid(),receiveDate:'2025-08-06',plaintiff:'荆国良',defendant:'孟云',caseType:'合同纠纷',court:'郑州市二七区人民法院',isPreserved:false,stage:'已结案',hearingDate:'2026-05-06',caseNo:'(2025)豫0103民初16236号',judge:'陈法官',isClosed:true,lawyer:'李律师',fee:'3000',judgmentDate:'2026-05-06',note:'一审胜诉'},{id:uid(),receiveDate:'2026-06-20',plaintiff:'待填',defendant:'待填',caseType:'婚约财产纠纷',court:'新乡市XX人民法院',isPreserved:true,stage:'待立案',caseNo:'',judge:'',isClosed:false,lawyer:'张律师',note:'彩礼5万+保管款4万'}];
-  save();}
-navTo('dashboard');}
+(function initLoad(){
+  var localC=cases.length,localD=docs.length,localN=notices.length;
+  if(localC>0){setSync('local')}else{setSync('syncing')}
+  // 尝试从 Supabase 加载数据
+  Promise.all([
+    fetch(API+'/cases?select=*&order=createdAt.desc',{headers:H}).then(function(r){return r.json()}).catch(function(){return []}),
+    fetch(API+'/docs?select=*',{headers:H}).then(function(r){return r.json()}).catch(function(){return []}),
+    fetch(API+'/notices?select=*',{headers:H}).then(function(r){return r.json()}).catch(function(){return []})
+  ]).then(function(results){
+    var d1=results[0],d2=results[1],d3=results[2];
+    // 关键修复：云端数据更多时才覆盖本地，否则保留本地（防止新增数据被覆盖）
+    if(d1.length > localC){cases=d1;localStorage.setItem(LS_C,JSON.stringify(cases))}
+    if(d2.length > localD){docs=d2;localStorage.setItem(LS_D,JSON.stringify(docs))}
+    if(d3.length > localN){notices=d3;localStorage.setItem(LS_N,JSON.stringify(notices))}
+    // 如果本地有数据但云端为空/更少，立即上传本地到云端
+    var needUpload=false;
+    if(localC > 0 && d1.length < localC){needUpload=true}
+    if(localD > 0 && d2.length < localD){needUpload=true}
+    if(localN > 0 && d3.length < localN){needUpload=true}
+    if(needUpload){console.log('📤 本地数据更多，立即上传到云端...');syncNow()}
+    setSync('ok');console.log('✅ 加载: '+cases.length+'案件('+localC+'本地/'+d1.length+'云端) '+docs.length+'文档 '+notices.length+'通知');
+    navTo('dashboard');
+  }).catch(function(){
+    setSync('local');console.log('⚠ 云端加载失败，使用本地数据('+cases.length+'案件 '+notices.length+'通知)');
+    navTo('dashboard');
+  });
+})();
+// 立即同步（不等8秒防抖）
+function syncNow(){
+  try{var p=[];p.push(fetch(API+'/cases?id=not.is.null',{method:'DELETE',headers:H}).then(function(){if(cases.length){var cd=cleanFields(cases,SUPACOLS);return fetch(API+'/cases',{method:'POST',headers:H,body:JSON.stringify(cd)})}}));if(docs.length){p.push(fetch(API+'/docs?id=not.is.null',{method:'DELETE',headers:H}).then(function(){var dd=cleanFields(docs,DOCCOLS);return fetch(API+'/docs',{method:'POST',headers:H,body:JSON.stringify(dd)})}))}if(notices.length){p.push(fetch(API+'/notices?id=not.is.null',{method:'DELETE',headers:H}).then(function(){var nd=cleanFields(notices,NOTICECOLS);return fetch(API+'/notices',{method:'POST',headers:H,body:JSON.stringify(nd)})}))}Promise.all(p).then(function(){console.log('✅ 立即同步完成');setSync('ok')}).catch(function(e){console.warn('同步失败:',e);setSync('error')})}catch(e){}}
 </script>
 </body>
 </html>
